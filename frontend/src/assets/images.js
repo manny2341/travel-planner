@@ -1,0 +1,15 @@
+export const IMAGES = {
+  BUDGET_1: "https://images.unsplash.com/photo-1649209979970-f01d950cc5ed?w=1080",
+  BUDGET_2: "https://images.unsplash.com/photo-1656049471577-1c10b7359c7d?w=1080",
+  DESTINATIONS_1: "https://images.unsplash.com/photo-1683499265663-d38c13aced63?w=1080",
+  DESTINATIONS_2: "https://images.unsplash.com/photo-1668151133903-72da87fe1f40?w=1080",
+  FLIGHT_BOOKING_1: "https://images.unsplash.com/photo-1771694583915-78f9b39fd6d1?w=1080",
+  FLIGHT_BOOKING_2: "https://images.unsplash.com/photo-1731992941814-9909ff7efcf1?w=1080",
+  HERO_DESTINATION_1: "https://images.unsplash.com/photo-1660207766758-a2e5985005ad?w=1080",
+  HERO_DESTINATION_2: "https://images.unsplash.com/photo-1660315250109-075f6b142ebc?w=1080",
+  HERO_DESTINATION_3: "https://images.unsplash.com/photo-1660207768602-f6327ae51d82?w=1080",
+  HOTEL_BOOKING_1: "https://images.unsplash.com/photo-1509647924673-bbb53e22eeb8?w=1080",
+  HOTEL_BOOKING_2: "https://images.unsplash.com/photo-1561912774-79769a0a0a7a?w=1080",
+  PLAN_CREATOR_1: "https://images.unsplash.com/photo-1584967918940-a7d51b064268?w=1080",
+  PLAN_CREATOR_2: "https://images.unsplash.com/photo-1499591934245-40b55745b905?w=1080",
+};
