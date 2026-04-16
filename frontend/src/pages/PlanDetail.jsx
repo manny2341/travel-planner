@@ -60,7 +60,7 @@ function PlanDetail() {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
-      setPlan({ ...plan, destinations: plan.destinations.filter(d => d._id !== placeId) });
+      setPlan({ ...plan, destinations: plan.destinations.filter(d => d.id !== placeId) });
     } catch (err) { console.error(err); }
   };
 
@@ -166,14 +166,14 @@ function PlanDetail() {
                     </thead>
                     <tbody>
                       {plan.expenses.map(e => (
-                        <tr key={e._id} style={{borderBottom:'1px solid #f0f0f0'}}>
+                        <tr key={e.id} style={{borderBottom:'1px solid #f0f0f0'}}>
                           <td style={{padding:'0.75rem 1rem',color:'#111827'}}>{e.description}</td>
                           <td style={{padding:'0.75rem 1rem'}}>
                             <span style={{background:'#e8f4fd',color:'#0077b6',padding:'0.2rem 0.6rem',borderRadius:'20px',fontSize:'0.75rem'}}>{e.category}</span>
                           </td>
                           <td style={{padding:'0.75rem 1rem',textAlign:'right',fontWeight:'600',color:'#111827'}}>${e.amount.toFixed(2)}</td>
                           <td style={{padding:'0.75rem',textAlign:'right'}}>
-                            <button onClick={() => deleteExpense(e._id)} style={{background:'none',border:'none',color:'#dc3545',cursor:'pointer'}}>✕</button>
+                            <button onClick={() => deleteExpense(e.id)} style={{background:'none',border:'none',color:'#dc3545',cursor:'pointer'}}>✕</button>
                           </td>
                         </tr>
                       ))}
@@ -204,7 +204,7 @@ function PlanDetail() {
         )}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1.5rem' }}>
           {plan.destinations?.map((place) => (
-            <div key={place._id} style={{ background: '#fff', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.08)' }}>
+            <div key={place.id} style={{ background: '#fff', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 2px 10px rgba(0,0,0,0.08)' }}>
               {place.photo ? (
                 <img src={place.photo} alt={place.name} style={{ width: '100%', height: '160px', objectFit: 'cover' }} onError={(e) => { e.target.style.display = 'none'; }} />
               ) : (
@@ -217,7 +217,7 @@ function PlanDetail() {
                 <p style={{ color: '#888', fontSize: '0.78rem', marginBottom: '0.6rem' }}>{place.address}</p>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   {place.rating && <span style={{ background: '#fff3cd', color: '#856404', padding: '0.2rem 0.6rem', borderRadius: '20px', fontSize: '0.78rem' }}>⭐ {place.rating}</span>}
-                  <button onClick={() => removeDestination(place._id)} style={{ background: '#fff', color: '#dc3545', border: '1px solid #dc3545', padding: '0.3rem 0.7rem', borderRadius: '20px', fontSize: '0.78rem', cursor: 'pointer' }}>Remove</button>
+                  <button onClick={() => removeDestination(place.id)} style={{ background: '#fff', color: '#dc3545', border: '1px solid #dc3545', padding: '0.3rem 0.7rem', borderRadius: '20px', fontSize: '0.78rem', cursor: 'pointer' }}>Remove</button>
                 </div>
               </div>
             </div>

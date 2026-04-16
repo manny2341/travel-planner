@@ -1,29 +1,127 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
-import { Plane, Hotel as HotelIcon, Star, Wifi, Utensils, Dumbbell, Coffee, Car, Users } from "lucide-react";
-import { sampleFlights, sampleHotels } from "../data/index";
+import { Plane, Hotel as HotelIcon, Search } from "lucide-react";
+import { sampleHotels } from "../data/index";
 import { FlightCard, HotelCard } from "../components/Cards";
 import { BookingFilterForm } from "../components/Forms";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "../components/ui/dialog";
 import { Button } from "../components/ui/button";
-import { Badge } from "../components/ui/badge";
-import { Separator } from "../components/ui/separator";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements, CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { toast } from "sonner";
 import { API_BASE } from "../lib/api";
+import { useAuth } from "../context/AuthContext";
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLIC_KEY);
 
-function PaymentForm({ amount, description, onSuccess }) {
+const AIRPORT_CITIES = {
+  LHR: "London", LGW: "London", STN: "London", CDG: "Paris", ORY: "Paris",
+  JFK: "New York", LAX: "Los Angeles", DXB: "Dubai", AMS: "Amsterdam",
+  BCN: "Barcelona", MAD: "Madrid", FCO: "Rome", MXP: "Milan",
+  NRT: "Tokyo", SYD: "Sydney", SIN: "Singapore", BKK: "Bangkok",
+  MAN: "Manchester", EDI: "Edinburgh", BHX: "Birmingham"
+};
+
+function mapFlight(f) {
+  const dep = new Date(f.departure);
+  const arr = new Date(f.arrival);
+  const mins = Math.round((arr - dep) / 60000);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return {
+    ...f,
+    flightNumber: f.id,
+    duration: `${h}h ${m > 0 ? m + "m" : ""}`.trim(),
+    class: "economy",
+    departure: {
+      time: dep.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+      city: AIRPORT_CITIES[f.origin] || f.origin,
+      airport: f.origin,
+      date: dep.toLocaleDateString("en-GB")
+    },
+    arrival: {
+      time: arr.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" }),
+      city: AIRPORT_CITIES[f.destination] || f.destination,
+      airport: f.destination,
+      date: arr.toLocaleDateString("en-GB")
+    }
+  };
+}
+
+function AirportInput({ label, value, onChange }) {
+  const [query, setQuery] = useState(value || "");
+  const [suggestions, setSuggestions] = useState([]);
+  const [open, setOpen] = useState(false);
+  const timer = useRef(null);
+  const wrapperRef = useRef(null);
+
+  useEffect(() => {
+    const handler = (e) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const handleInput = (e) => {
+    const q = e.target.value;
+    setQuery(q);
+    clearTimeout(timer.current);
+    if (q.length < 2) { setSuggestions([]); setOpen(false); return; }
+    timer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/booking/airports?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        setSuggestions(data);
+        setOpen(data.length > 0);
+      } catch { /* ignore */ }
+    }, 250);
+  };
+
+  const select = (airport) => {
+    setQuery(`${airport.name} (${airport.id})`);
+    onChange(airport.id);
+    setSuggestions([]);
+    setOpen(false);
+  };
+
+  return (
+    <div className="relative flex-1 min-w-40" ref={wrapperRef}>
+      <label className="text-sm text-gray-500 block mb-1">{label}</label>
+      <input
+        type="text"
+        value={query}
+        onChange={handleInput}
+        placeholder="Search airport..."
+        className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+      {open && (
+        <ul className="absolute z-50 top-full mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-auto">
+          {suggestions.map((a) => (
+            <li key={a.id} onClick={() => select(a)}
+              className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm">
+              <span className="font-medium">{a.id}</span>
+              <span className="text-gray-500 ml-2">{a.name}</span>
+              <span className="text-gray-400 text-xs ml-1">— {a.subtitle}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function PaymentForm({ amount, description, itemType, onSuccess }) {
   const stripe = useStripe();
   const elements = useElements();
+  const { user, token } = useAuth();
   const [loading, setLoading] = useState(false);
 
   const handlePay = async (e) => {
     e.preventDefault();
     if (!stripe || !elements) return;
+    if (!user || !token) { toast.error("Please sign in to complete your booking"); return; }
     setLoading(true);
     try {
       const res = await fetch(`${API_BASE}/api/payment/create-payment-intent`, {
@@ -38,16 +136,19 @@ function PaymentForm({ amount, description, onSuccess }) {
       if (error) {
         toast.error(error.message);
       } else if (paymentIntent.status === "succeeded") {
-        toast.success("Payment successful!");
-        const booking = {
-          id: paymentIntent.id,
-          type: description,
-          amount,
-          date: new Date().toISOString(),
-          status: "confirmed"
-        };
-        const existing = JSON.parse(localStorage.getItem('bookingHistory') || '[]');
-        localStorage.setItem('bookingHistory', JSON.stringify([booking, ...existing]));
+        await fetch(`${API_BASE}/api/bookings`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            type: itemType || "other",
+            title: description,
+            amount,
+            currency: "USD",
+            payment_intent_id: paymentIntent.id,
+            details: {}
+          })
+        });
+        toast.success("Payment successful! Booking confirmed.");
         onSuccess();
       }
     } catch (err) {
@@ -71,7 +172,8 @@ function PaymentForm({ amount, description, onSuccess }) {
           <span style={{ color: "#0077b6" }}>${amount}</span>
         </div>
       </div>
-      <button type="submit" disabled={!stripe || loading} style={{ width: "100%", padding: "0.875rem", borderRadius: "8px", border: "none", background: loading ? "#93c5fd" : "#0077b6", color: "#fff", fontSize: "1rem", fontWeight: "600", cursor: loading ? "not-allowed" : "pointer" }}>
+      <button type="submit" disabled={!stripe || loading}
+        style={{ width: "100%", padding: "0.875rem", borderRadius: "8px", border: "none", background: loading ? "#93c5fd" : "#0077b6", color: "#fff", fontSize: "1rem", fontWeight: "600", cursor: loading ? "not-allowed" : "pointer" }}>
         {loading ? "Processing..." : "Pay $" + amount}
       </button>
     </form>
@@ -80,18 +182,40 @@ function PaymentForm({ amount, description, onSuccess }) {
 
 export default function Booking() {
   const [activeTab, setActiveTab] = useState("flights");
-  const [flightFilters, setFlightFilters] = useState({ minPrice: 0, maxPrice: 2000, sortBy: "price" });
   const [hotelFilters, setHotelFilters] = useState({ minPrice: 0, maxPrice: 1000, sortBy: "price" });
   const [paymentItem, setPaymentItem] = useState(null);
   const [paymentSuccess, setPaymentSuccess] = useState(false);
 
-  const filteredFlights = sampleFlights.filter(f => f.price >= flightFilters.minPrice && f.price <= flightFilters.maxPrice);
+  // Flight search state
+  const [fromCode, setFromCode] = useState("");
+  const [toCode, setToCode] = useState("");
+  const [flightDate, setFlightDate] = useState("");
+  const [searchedFlights, setSearchedFlights] = useState(null);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [flightFilters, setFlightFilters] = useState({ minPrice: 0, maxPrice: 2000, sortBy: "price" });
+
+  const handleFlightSearch = async (e) => {
+    e.preventDefault();
+    if (!fromCode || !toCode || !flightDate) { toast.error("Please fill in all search fields"); return; }
+    setSearchLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/booking/flights?from=${fromCode}&to=${toCode}&date=${flightDate}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Search failed");
+      setSearchedFlights(data.map(mapFlight));
+    } catch (err) {
+      toast.error(err.message || "Flight search failed");
+    }
+    setSearchLoading(false);
+  };
+
+  const displayFlights = searchedFlights !== null
+    ? searchedFlights.filter(f => f.price >= flightFilters.minPrice && f.price <= flightFilters.maxPrice)
+    : [];
+
   const filteredHotels = sampleHotels.filter(h => h.price >= hotelFilters.minPrice && h.price <= hotelFilters.maxPrice);
 
-  const handleClose = () => {
-    setPaymentItem(null);
-    setPaymentSuccess(false);
-  };
+  const handleClose = () => { setPaymentItem(null); setPaymentSuccess(false); };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -116,19 +240,65 @@ export default function Booking() {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="flights" className="space-y-8">
-            <BookingFilterForm type="flights" onFilter={setFlightFilters} />
-            <div className="space-y-4">
-              <h2 className="text-2xl font-semibold">Available Flights <span className="text-gray-400">({filteredFlights.length})</span></h2>
-              <div className="grid gap-6">
-                {filteredFlights.map(flight => (
-                  <div key={flight.id}>
-                    <FlightCard flight={flight} />
-                    <Button onClick={() => setPaymentItem({ type: "flight", name: flight.airline + " " + flight.flightNumber, amount: flight.price })} className="w-full mt-3" size="lg">Book Now</Button>
-                  </div>
-                ))}
-              </div>
+          <TabsContent value="flights" className="space-y-6">
+            {/* Flight Search Form */}
+            <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
+              <h3 className="font-semibold text-gray-900 mb-4">Search Flights</h3>
+              <form onSubmit={handleFlightSearch} className="flex flex-wrap gap-4 items-end">
+                <AirportInput label="From" value={fromCode} onChange={setFromCode} />
+                <AirportInput label="To" value={toCode} onChange={setToCode} />
+                <div className="flex-1 min-w-36">
+                  <label className="text-sm text-gray-500 block mb-1">Date</label>
+                  <input
+                    type="date"
+                    value={flightDate}
+                    onChange={e => setFlightDate(e.target.value)}
+                    min={new Date().toISOString().split("T")[0]}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <button type="submit" disabled={searchLoading}
+                  className="flex items-center gap-2 bg-blue-600 text-white px-5 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 h-[38px]">
+                  <Search className="w-4 h-4" /> {searchLoading ? "Searching..." : "Search"}
+                </button>
+              </form>
             </div>
+
+            {searchedFlights !== null && (
+              <>
+                <BookingFilterForm type="flights" onFilter={setFlightFilters} />
+                <div className="space-y-4">
+                  <h2 className="text-2xl font-semibold">
+                    Available Flights <span className="text-gray-400">({displayFlights.length})</span>
+                  </h2>
+                  {displayFlights.length === 0 ? (
+                    <div className="text-center py-12 text-gray-400 bg-white rounded-xl border border-gray-200">
+                      No flights found matching your filters.
+                    </div>
+                  ) : (
+                    <div className="grid gap-6">
+                      {displayFlights.map(flight => (
+                        <div key={flight.id}>
+                          <FlightCard flight={flight} />
+                          <Button
+                            onClick={() => setPaymentItem({ type: "flight", name: `${flight.airline} — ${flight.departure.airport} → ${flight.arrival.airport}`, amount: flight.price })}
+                            className="w-full mt-3" size="lg">
+                            Book Now — ${flight.price}
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+
+            {searchedFlights === null && (
+              <div className="text-center py-16 text-gray-400 bg-white rounded-xl border border-gray-200">
+                <Plane className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                <p>Search for flights above to see available options</p>
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="hotels" className="space-y-8">
@@ -139,7 +309,11 @@ export default function Booking() {
                 {filteredHotels.map(hotel => (
                   <div key={hotel.id}>
                     <HotelCard hotel={hotel} />
-                    <Button onClick={() => setPaymentItem({ type: "hotel", name: hotel.name, amount: hotel.price })} className="w-full mt-3" size="lg">Book Now</Button>
+                    <Button
+                      onClick={() => setPaymentItem({ type: "hotel", name: hotel.name, amount: hotel.price })}
+                      className="w-full mt-3" size="lg">
+                      Book Now — ${hotel.price}/night
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -158,12 +332,17 @@ export default function Booking() {
             <div style={{ textAlign: "center", padding: "2rem" }}>
               <div style={{ fontSize: "4rem", marginBottom: "1rem" }}>✅</div>
               <h3 style={{ fontSize: "1.25rem", fontWeight: "600", color: "#059669", marginBottom: "0.5rem" }}>Payment Successful!</h3>
-              <p style={{ color: "#6b7280", marginBottom: "1.5rem" }}>Your booking is confirmed.</p>
+              <p style={{ color: "#6b7280", marginBottom: "1.5rem" }}>Your booking is confirmed and saved to your account.</p>
               <button onClick={handleClose} style={{ background: "#0077b6", color: "#fff", border: "none", padding: "0.75rem 2rem", borderRadius: "8px", cursor: "pointer", fontWeight: "600" }}>Done</button>
             </div>
           ) : paymentItem ? (
             <Elements stripe={stripePromise}>
-              <PaymentForm amount={paymentItem.amount} description={paymentItem.name} onSuccess={() => setPaymentSuccess(true)} />
+              <PaymentForm
+                amount={paymentItem.amount}
+                description={paymentItem.name}
+                itemType={paymentItem.type}
+                onSuccess={() => setPaymentSuccess(true)}
+              />
             </Elements>
           ) : null}
         </DialogContent>

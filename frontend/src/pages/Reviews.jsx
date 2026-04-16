@@ -1,23 +1,51 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Star, ThumbsUp, Filter, Share2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { ReviewCard } from '../components/Cards';
 import { ReviewForm } from '../components/Forms';
 import { useAuth } from '../context/AuthContext';
-import { sampleReviews } from '../data/index';
+import { API_BASE } from '../lib/api';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Card } from '../components/ui/card';
 import { Separator } from '../components/ui/separator';
 
+function shapeReview(r) {
+  return {
+    id: r.id,
+    userName: r.user_name || 'Traveler',
+    userAvatar: null,
+    rating: r.rating,
+    title: r.place_name,
+    comment: r.comment,
+    verified: false,
+    createdAt: r.created_at,
+    helpful: 0
+  };
+}
+
 export default function Reviews() {
-  const { user } = useAuth();
-  const [reviews, setReviews] = useState(sampleReviews);
+  const { user, token } = useAuth();
+  const [reviews, setReviews] = useState([]);
   const [ratingFilter, setRatingFilter] = useState('all');
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [selectedReview, setSelectedReview] = useState(null);
   const [showReviewForm, setShowReviewForm] = useState(false);
   const [helpfulClicked, setHelpfulClicked] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => { fetchReviews(); }, []);
+
+  const fetchReviews = async () => {
+    try {
+      const res = await fetch(`${API_BASE}/api/reviews`);
+      const data = await res.json();
+      if (Array.isArray(data)) setReviews(data.map(shapeReview));
+    } catch (err) { console.error(err); }
+    setIsLoading(false);
+  };
 
   const filteredReviews = useMemo(() => {
     if (ratingFilter === 'all') return reviews;
@@ -35,21 +63,33 @@ export default function Reviews() {
     return dist;
   }, [reviews]);
 
-  const handleSubmitReview = (reviewData) => {
-    const newReview = {
-      id: 'review-' + Date.now(),
-      userId: user?.id || 'current-user',
-      userName: user?.name || 'You',
-      userAvatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + (user?.name || 'You'),
-      rating: reviewData.rating,
-      title: reviewData.title,
-      comment: reviewData.comment,
-      helpful: 0,
-      createdAt: new Date().toISOString(),
-      verified: false
-    };
-    setReviews([newReview, ...reviews]);
-    setShowReviewForm(false);
+  const handleSubmitReview = async (reviewData) => {
+    if (!user || !token) {
+      toast.error('Please sign in to write a review');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const res = await fetch(`${API_BASE}/api/reviews`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          placeName: reviewData.title,
+          placeId: reviewData.title.toLowerCase().replace(/\s+/g, '-'),
+          rating: reviewData.rating,
+          comment: reviewData.comment,
+          userName: user.name || user.email
+        })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to submit review');
+      await fetchReviews();
+      setShowReviewForm(false);
+      toast.success('Review submitted!');
+    } catch (err) {
+      toast.error(err.message || 'Failed to submit review');
+    }
+    setSubmitting(false);
   };
 
   const handleHelpful = (reviewId) => {
@@ -92,7 +132,7 @@ export default function Reviews() {
                     <Star key={star} className={'w-6 h-6 ' + (star <= Math.round(parseFloat(averageRating)) ? 'fill-yellow-400 text-yellow-400' : 'text-gray-200')} />
                   ))}
                 </div>
-                <p className="text-gray-400">Based on {reviews.length} reviews</p>
+                <p className="text-gray-400">Based on {reviews.length} review{reviews.length !== 1 ? 's' : ''}</p>
               </div>
               <div className="space-y-2">
                 {[5,4,3,2,1].map(rating => {
@@ -148,41 +188,52 @@ export default function Reviews() {
             <Card className="p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold text-gray-900">Share Your Experience</h3>
-                <button onClick={() => setShowReviewForm(false)} className="text-gray-400 hover:text-gray-600 text-xl">x</button>
+                <button onClick={() => setShowReviewForm(false)} className="text-gray-400 hover:text-gray-600 text-xl">×</button>
               </div>
-              <ReviewForm onSubmit={handleSubmitReview} />
+              {submitting ? (
+                <div className="text-center py-8 text-gray-400">Submitting...</div>
+              ) : (
+                <ReviewForm onSubmit={handleSubmitReview} />
+              )}
             </Card>
           </motion.div>
         )}
 
         <Separator className="mb-8" />
 
-        <div className="space-y-6">
-          {filteredReviews.length === 0 ? (
-            <Card className="p-12 text-center">
-              <p className="text-gray-400">No reviews found for the selected rating.</p>
-            </Card>
-          ) : (
-            filteredReviews.map((review, index) => (
-              <motion.div key={review.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 * index }}>
-                <Card className="p-6 hover:shadow-lg transition-shadow">
-                  <ReviewCard review={review} />
-                  <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
-                    <button onClick={() => handleHelpful(review.id)}
-                      className={'flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg transition-colors ' + (helpfulClicked[review.id] ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:bg-gray-50')}>
-                      <ThumbsUp className="w-4 h-4" />
-                      Helpful ({review.helpful})
-                    </button>
-                    <button onClick={() => { setSelectedReview(review); setShareDialogOpen(true); }}
-                      className="flex items-center gap-2 text-sm text-gray-400 hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-colors">
-                      <Share2 className="w-4 h-4" /> Share
-                    </button>
-                  </div>
-                </Card>
-              </motion.div>
-            ))
-          )}
-        </div>
+        {isLoading ? (
+          <div className="text-center py-12">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+            <p className="mt-4 text-gray-500">Loading reviews...</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {filteredReviews.length === 0 ? (
+              <Card className="p-12 text-center">
+                <p className="text-gray-400">{reviews.length === 0 ? 'No reviews yet. Be the first to share your experience!' : 'No reviews found for the selected rating.'}</p>
+              </Card>
+            ) : (
+              filteredReviews.map((review, index) => (
+                <motion.div key={review.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5, delay: 0.1 * index }}>
+                  <Card className="p-6 hover:shadow-lg transition-shadow">
+                    <ReviewCard review={review} />
+                    <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+                      <button onClick={() => handleHelpful(review.id)}
+                        className={'flex items-center gap-2 text-sm px-3 py-1.5 rounded-lg transition-colors ' + (helpfulClicked[review.id] ? 'bg-blue-50 text-blue-600' : 'text-gray-400 hover:bg-gray-50')}>
+                        <ThumbsUp className="w-4 h-4" />
+                        Helpful ({review.helpful})
+                      </button>
+                      <button onClick={() => { setSelectedReview(review); setShareDialogOpen(true); }}
+                        className="flex items-center gap-2 text-sm text-gray-400 hover:bg-gray-50 px-3 py-1.5 rounded-lg transition-colors">
+                        <Share2 className="w-4 h-4" /> Share
+                      </button>
+                    </div>
+                  </Card>
+                </motion.div>
+              ))
+            )}
+          </div>
+        )}
       </div>
 
       <Dialog open={shareDialogOpen} onOpenChange={setShareDialogOpen}>
@@ -202,18 +253,9 @@ export default function Reviews() {
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-3">
-                <button onClick={() => handleShare(selectedReview, 'twitter')}
-                  className="border border-gray-200 py-2 rounded-lg text-sm hover:bg-gray-50">
-                  X
-                </button>
-                <button onClick={() => handleShare(selectedReview, 'facebook')}
-                  className="border border-gray-200 py-2 rounded-lg text-sm hover:bg-gray-50">
-                  Facebook
-                </button>
-                <button onClick={() => handleShare(selectedReview, 'linkedin')}
-                  className="border border-gray-200 py-2 rounded-lg text-sm hover:bg-gray-50">
-                  LinkedIn
-                </button>
+                <button onClick={() => handleShare(selectedReview, 'twitter')} className="border border-gray-200 py-2 rounded-lg text-sm hover:bg-gray-50">X</button>
+                <button onClick={() => handleShare(selectedReview, 'facebook')} className="border border-gray-200 py-2 rounded-lg text-sm hover:bg-gray-50">Facebook</button>
+                <button onClick={() => handleShare(selectedReview, 'linkedin')} className="border border-gray-200 py-2 rounded-lg text-sm hover:bg-gray-50">LinkedIn</button>
               </div>
             </div>
           )}

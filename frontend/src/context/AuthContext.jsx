@@ -1,27 +1,62 @@
-import { createContext, useState, useContext } from 'react';
+import { createContext, useState, useEffect, useContext } from 'react';
+import { supabase } from '../lib/supabase';
 
 const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(JSON.parse(localStorage.getItem('user')) || null);
-  const [token, setToken] = useState(localStorage.getItem('token') || null);
+  const [user, setUser] = useState(null);
+  const [token, setToken] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  const login = (userData, tokenData) => {
-    setUser(userData);
-    setToken(tokenData);
-    localStorage.setItem('user', JSON.stringify(userData));
-    localStorage.setItem('token', tokenData);
+  async function loadProfile(supabaseUser, accessToken) {
+    if (!supabaseUser) {
+      setUser(null);
+      setToken(null);
+      return;
+    }
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('name')
+      .eq('id', supabaseUser.id)
+      .single();
+    setUser({
+      id: supabaseUser.id,
+      email: supabaseUser.email,
+      name: profile?.name || supabaseUser.user_metadata?.name || ''
+    });
+    setToken(accessToken);
+  }
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      loadProfile(session?.user ?? null, session?.access_token ?? null).finally(() => setLoading(false));
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      loadProfile(session?.user ?? null, session?.access_token ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const login = async (email, password) => {
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    return data;
   };
 
-  const logout = () => {
-    setUser(null);
-    setToken(null);
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
+  const logout = async () => {
+    await supabase.auth.signOut();
+  };
+
+  // Allow pages to manually refresh the stored user (e.g. after profile update)
+  const refreshUser = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    await loadProfile(session?.user ?? null, session?.access_token ?? null);
   };
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout }}>
+    <AuthContext.Provider value={{ user, token, login, logout, loading, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

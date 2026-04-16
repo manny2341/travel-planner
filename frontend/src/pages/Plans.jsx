@@ -43,7 +43,7 @@ export default function Plans() {
         headers: { Authorization: `Bearer ${token}` }
       });
       const data = await res.json();
-      setPlans(data);
+      setPlans(Array.isArray(data) ? data : []);
     } catch (err) { console.error(err); }
     setIsLoading(false);
   };
@@ -58,10 +58,15 @@ export default function Plans() {
         body: JSON.stringify(formData)
       });
       const newPlan = await res.json();
-      setPlans(prev => [newPlan, ...prev]); toast.success("Plan created successfully!");
+      if (!res.ok) throw new Error(newPlan.message || 'Failed to create plan');
+      await fetchPlans();
+      toast.success("Plan created successfully!");
       setCurrentPlan(newPlan);
       setActiveTab('saved');
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message || 'Failed to create plan');
+    }
     setIsCreating(false);
   };
 
@@ -69,16 +74,21 @@ export default function Plans() {
     if (!editingPlan || !user) return;
     setIsCreating(true);
     try {
-      const res = await fetch(`${API_BASE}/api/plans/${editingPlan._id}`, {
+      const res = await fetch(`${API_BASE}/api/plans/${editingPlan.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(formData)
       });
       const updated = await res.json();
-      setPlans(prev => prev.map(p => p._id === editingPlan._id ? updated : p));
+      if (!res.ok) throw new Error(updated.message || 'Failed to update plan');
+      await fetchPlans();
+      toast.success("Plan updated successfully!");
       setEditingPlan(null);
       setActiveTab('saved');
-    } catch (err) { console.error(err); }
+    } catch (err) {
+      console.error(err);
+      toast.error(err.message || 'Failed to update plan');
+    }
     setIsCreating(false);
   };
 
@@ -88,8 +98,8 @@ export default function Plans() {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
-      setPlans(prev => prev.filter(p => p._id !== planId));
-      if (currentPlan?._id === planId) setCurrentPlan(null);
+      setPlans(prev => prev.filter(p => p.id !== planId));
+      if (currentPlan?.id === planId) setCurrentPlan(null);
       setDeleteDialogPlan(null);
     } catch (err) { console.error(err); }
   };
@@ -171,7 +181,7 @@ export default function Plans() {
                         className="flex-1 border border-gray-200 bg-white text-gray-700 py-2 rounded-lg text-sm flex items-center justify-center gap-2 hover:bg-gray-50">
                         <Edit2 className="w-4 h-4" /> Edit Plan
                       </button>
-                      <button onClick={() => navigate(`/plans/${currentPlan._id}`)}
+                      <button onClick={() => navigate(`/plans/${currentPlan.id}`)}
                         className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-sm flex items-center justify-center gap-2 hover:bg-blue-700">
                         View Plan
                       </button>
@@ -202,12 +212,12 @@ export default function Plans() {
             ) : (
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {plans.map((plan, index) => (
-                  <motion.div key={plan._id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: index * 0.1 }}>
+                  <motion.div key={plan.id} initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay: index * 0.1 }}>
                     <Card className="h-full hover:shadow-lg transition-shadow">
                       <CardContent className="p-6">
                         <PlanCard plan={plan} />
                         <div className="mt-4 flex gap-2">
-                          <button onClick={() => navigate(`/plans/${plan._id}`)}
+                          <button onClick={() => navigate(`/plans/${plan.id}`)}
                             className="flex-1 bg-blue-600 text-white py-2 rounded-lg text-xs flex items-center justify-center gap-1 hover:bg-blue-700">
                             View
                           </button>
@@ -240,7 +250,7 @@ export default function Plans() {
           </DialogHeader>
           <div className="flex gap-3 justify-end mt-4">
             <button onClick={() => setDeleteDialogPlan(null)} className="border border-gray-200 px-4 py-2 rounded-lg text-sm hover:bg-gray-50">Cancel</button>
-            <button onClick={() => handleDeletePlan(deleteDialogPlan?._id)} className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700">Delete Plan</button>
+            <button onClick={() => handleDeletePlan(deleteDialogPlan?.id)} className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700">Delete Plan</button>
           </div>
         </DialogContent>
       </Dialog>

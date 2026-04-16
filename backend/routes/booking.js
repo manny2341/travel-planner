@@ -62,7 +62,7 @@ router.get('/flights', (req, res) => {
       id: `flight-${i}`,
       airline: airline.name,
       airlineLogo: airline.logo,
-      price: `£${basePrice + i * 15}`,
+      price: basePrice + i * 15,
       duration: duration,
       stops: stops,
       departure: depDate.toISOString(),

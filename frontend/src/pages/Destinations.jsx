@@ -1,14 +1,15 @@
 import { toast } from "sonner";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
-import { MapPin, Star, TrendingUp, DollarSign, Filter } from "lucide-react";
-import { destinations } from "../data/index";
+import { MapPin, Star, TrendingUp, DollarSign, Filter, Search } from "lucide-react";
+import { destinations as staticDestinations } from "../data/index";
 import { DestinationCard } from "../components/Cards";
 import { SearchForm } from "../components/Forms";
 import { Button } from "../components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../components/ui/select";
 import { Badge } from "../components/ui/badge";
+import { API_BASE } from "../lib/api";
 
 const categories = [
   { value: "all", label: "All Destinations" },
@@ -19,50 +20,81 @@ const categories = [
   { value: "adventure", label: "Adventure" },
 ];
 
+const PRICE_BY_LEVEL = { 0: 0, 1: 300, 2: 700, 3: 1200, 4: 2000 };
+
+function mapPlaceToDestination(place) {
+  const parts = (place.address || '').split(',');
+  return {
+    id: place.id,
+    name: place.name,
+    location: parts.slice(0, 2).join(',').trim() || 'Unknown',
+    country: parts[parts.length - 1]?.trim() || 'Unknown',
+    price: PRICE_BY_LEVEL[place.price_level] ?? 800,
+    rating: place.rating || 4.0,
+    reviewCount: place.user_ratings_total || 0,
+    category: 'cultural',
+    image: place.photo || 'https://images.unsplash.com/photo-1488085061387-422e29b40080?w=800',
+    description: `Explore ${place.name}, one of the most popular destinations.`,
+    tags: (place.types || [])
+      .filter(t => !['establishment', 'point_of_interest'].includes(t))
+      .slice(0, 3)
+      .map(t => t.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()))
+  };
+}
+
 export default function Destinations() {
   const [searchParams] = useSearchParams();
   const [sortBy, setSortBy] = useState("popularity");
   const [categoryFilter, setCategoryFilter] = useState(searchParams.get("category") || "all");
-  const [searchFilters, setSearchFilters] = useState(
-    searchParams.get("q") ? { location: searchParams.get("q") } : {}
-  );
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("q") || "");
+  const [apiResults, setApiResults] = useState(null); // null = not searched
+  const [apiLoading, setApiLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 6;
 
   useEffect(() => {
     const q = searchParams.get("q");
     const cat = searchParams.get("category");
-    if (q) setSearchFilters({ location: q });
+    if (q) { setSearchQuery(q); triggerSearch(q); }
     if (cat) setCategoryFilter(cat);
   }, [searchParams]);
 
-  const handleSearch = (filters) => {
-    setSearchFilters(filters);
+  const triggerSearch = useCallback(async (q) => {
+    if (!q || q.trim().length < 2) { setApiResults(null); return; }
+    setApiLoading(true);
     setCurrentPage(1);
+    try {
+      const res = await fetch(`${API_BASE}/api/destinations/search?q=${encodeURIComponent(q.trim())}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Search failed");
+      setApiResults(Array.isArray(data) ? data.map(mapPlaceToDestination) : []);
+    } catch (err) {
+      toast.error(err.message || "Search failed");
+      setApiResults(null);
+    }
+    setApiLoading(false);
+  }, []);
+
+  const handleSearch = (filters) => {
+    const q = filters.location || "";
+    setSearchQuery(q);
+    if (q) {
+      triggerSearch(q);
+    } else {
+      setApiResults(null);
+      setCurrentPage(1);
+    }
   };
 
+  // Use API results when available, otherwise static data
+  const baseDestinations = apiResults !== null ? apiResults : staticDestinations;
+
   const filteredDestinations = useMemo(() => {
-    let filtered = [...destinations];
+    let filtered = [...baseDestinations];
 
-    if (categoryFilter !== "all") {
+    // Category filter only applies to static data
+    if (apiResults === null && categoryFilter !== "all") {
       filtered = filtered.filter(dest => dest.category === categoryFilter);
-    }
-
-    if (searchFilters.location) {
-      const searchTerm = searchFilters.location.toLowerCase();
-      filtered = filtered.filter(dest =>
-        dest.name.toLowerCase().includes(searchTerm) ||
-        dest.location.toLowerCase().includes(searchTerm) ||
-        dest.country.toLowerCase().includes(searchTerm)
-      );
-    }
-
-    if (searchFilters.minBudget !== undefined) {
-      filtered = filtered.filter(dest => dest.price >= searchFilters.minBudget);
-    }
-
-    if (searchFilters.maxBudget !== undefined) {
-      filtered = filtered.filter(dest => dest.price <= searchFilters.maxBudget);
     }
 
     switch (sortBy) {
@@ -73,7 +105,7 @@ export default function Destinations() {
     }
 
     return filtered;
-  }, [categoryFilter, searchFilters, sortBy]);
+  }, [baseDestinations, categoryFilter, sortBy, apiResults]);
 
   const totalPages = Math.ceil(filteredDestinations.length / itemsPerPage);
   const paginatedDestinations = filteredDestinations.slice(
@@ -103,16 +135,27 @@ export default function Destinations() {
                 <Filter className="w-5 h-5 text-gray-400" />
                 <span className="text-sm font-medium">Filter by:</span>
               </div>
-              <div className="flex flex-wrap gap-2">
-                {categories.map(cat => (
-                  <Badge key={cat.value}
-                    variant={categoryFilter === cat.value ? "default" : "outline"}
-                    className={`cursor-pointer transition-all hover:scale-105 ${categoryFilter === cat.value ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border-gray-200'}`}
-                    onClick={() => { setCategoryFilter(cat.value); setCurrentPage(1); }}>
-                    {cat.label}
-                  </Badge>
-                ))}
-              </div>
+              {apiResults === null && (
+                <div className="flex flex-wrap gap-2">
+                  {categories.map(cat => (
+                    <Badge key={cat.value}
+                      variant={categoryFilter === cat.value ? "default" : "outline"}
+                      className={`cursor-pointer transition-all hover:scale-105 ${categoryFilter === cat.value ? 'bg-blue-600 text-white' : 'bg-white text-gray-600 border-gray-200'}`}
+                      onClick={() => { setCategoryFilter(cat.value); setCurrentPage(1); }}>
+                      {cat.label}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              {apiResults !== null && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-blue-600 flex items-center gap-1">
+                    <Search className="w-4 h-4" /> Results for "{searchQuery}"
+                  </span>
+                  <button onClick={() => { setApiResults(null); setSearchQuery(""); setCurrentPage(1); }}
+                    className="text-xs text-gray-400 hover:text-gray-600 underline">Clear search</button>
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-4">
               <span className="text-sm text-gray-400">{filteredDestinations.length} destinations found</span>
@@ -130,7 +173,12 @@ export default function Destinations() {
             </div>
           </div>
 
-          {paginatedDestinations.length === 0 ? (
+          {apiLoading ? (
+            <div className="text-center py-16">
+              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+              <p className="mt-4 text-gray-500">Searching destinations...</p>
+            </div>
+          ) : paginatedDestinations.length === 0 ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-center py-16">
               <MapPin className="w-16 h-16 mx-auto mb-4 text-gray-300" />
               <h3 className="text-xl font-semibold mb-2">No destinations found</h3>

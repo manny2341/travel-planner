@@ -1,26 +1,27 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
-import axios from 'axios';
-import { API_BASE } from '../lib/api';
+import { supabase } from '../lib/supabase';
 
 function Register() {
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await axios.post(`${API_BASE}/api/auth/register`, form);
-      login(res.data.user, res.data.token);
-      toast.success('Account created! Welcome, ' + res.data.user.name + '!');
+      const { error } = await supabase.auth.signUp({
+        email: form.email,
+        password: form.password,
+        options: { data: { name: form.name } }
+      });
+      if (error) throw error;
+      toast.success('Account created! Welcome, ' + form.name + '!');
       navigate('/');
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Something went wrong');
+      toast.error(err.message || 'Something went wrong');
     }
     setLoading(false);
   };
@@ -38,7 +39,7 @@ function Register() {
         <form onSubmit={handleSubmit}>
           <input style={inputStyle} type="text" placeholder="Full name" value={form.name} onChange={e => setForm({...form, name: e.target.value})} required />
           <input style={inputStyle} type="email" placeholder="Email address" value={form.email} onChange={e => setForm({...form, email: e.target.value})} required />
-          <input style={inputStyle} type="password" placeholder="Password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} required />
+          <input style={inputStyle} type="password" placeholder="Password" value={form.password} onChange={e => setForm({...form, password: e.target.value})} required minLength={6} />
           <button type="submit" disabled={loading} style={{ width: '100%', padding: '0.9rem', background: loading ? '#ccc' : '#0077b6', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '1rem', cursor: loading ? 'not-allowed' : 'pointer' }}>
             {loading ? 'Creating account...' : 'Create Account'}
           </button>

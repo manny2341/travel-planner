@@ -2,13 +2,11 @@ import { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { toast } from 'sonner';
-import axios from 'axios';
-import { API_BASE } from '../lib/api';
 
 function Login() {
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
-  const { login } = useAuth();
+  const { login, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || '/';
@@ -17,12 +15,12 @@ function Login() {
     e.preventDefault();
     setLoading(true);
     try {
-      const res = await axios.post(`${API_BASE}/api/auth/login`, form);
-      login(res.data.user, res.data.token);
-      toast.success('Welcome back, ' + res.data.user.name + '!');
+      await login(form.email, form.password);
+      // user state is set by onAuthStateChange in AuthContext
+      toast.success('Welcome back!');
       navigate(from);
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Invalid email or password');
+      toast.error(err.message || 'Invalid email or password');
     }
     setLoading(false);
   };

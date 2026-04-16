@@ -187,8 +187,8 @@ export function ReviewForm({ onSubmit }) {
         </div>
       </div>
       <div>
-        <label className="text-sm text-gray-500 block mb-1">Review title</label>
-        <input className={inputStyle} type="text" placeholder="Summarise your experience" value={form.title} onChange={e => setForm({...form, title: e.target.value})} required />
+        <label className="text-sm text-gray-500 block mb-1">Destination</label>
+        <input className={inputStyle} type="text" placeholder="e.g. Eiffel Tower, Santorini, Tokyo" value={form.title} onChange={e => setForm({...form, title: e.target.value})} required />
       </div>
       <div>
         <label className="text-sm text-gray-500 block mb-1">Your review</label>

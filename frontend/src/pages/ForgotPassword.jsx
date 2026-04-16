@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
-import { API_BASE } from '../lib/api';
+import { supabase } from '../lib/supabase';
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
@@ -12,11 +12,10 @@ export default function ForgotPassword() {
     e.preventDefault();
     setLoading(true);
     try {
-      await fetch(`${API_BASE}/api/auth/forgot-password`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email })
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/reset-password`
       });
+      if (error) throw error;
       // Always show success to avoid email enumeration
       setSubmitted(true);
     } catch {

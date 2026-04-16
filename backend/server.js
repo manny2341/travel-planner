@@ -1,5 +1,4 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
@@ -39,15 +38,13 @@ const paymentLimiter = rateLimit({
   legacyHeaders: false
 });
 
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('MongoDB connected'))
-  .catch(err => console.log('MongoDB error:', err.message));
-
 app.use('/api/auth', authLimiter, require('./routes/auth'));
 app.use('/api/destinations', require('./routes/destinations'));
 app.use('/api/plans', require('./routes/plans'));
 app.use('/api/reviews', require('./routes/reviews'));
 app.use('/api/booking', require('./routes/booking'));
+app.use('/api/bookings', require('./routes/bookings'));
+app.use('/api/budget', require('./routes/budget'));
 app.use('/api/payment', paymentLimiter, require('./routes/payment'));
 
 app.get('/', (req, res) => res.send('Travel Planner API running'));
