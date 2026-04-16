@@ -65,10 +65,22 @@ export default function Footer() {
           </div>
         </div>
 
-        <div style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '1px solid #e5e7eb', textAlign: 'center' }}>
+        <div style={{ marginTop: '2rem', paddingTop: '2rem', borderTop: '1px solid #e5e7eb', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
           <p style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
-            © 2026 TravelPlanner. All rights reserved. Built with ❤️
+            © 2026 TravelPlanner. All rights reserved.
           </p>
+          <div style={{ display: 'flex', gap: '1.5rem' }}>
+            <Link to="/privacy" style={{ fontSize: '0.875rem', color: '#6b7280', textDecoration: 'none' }}
+              onMouseEnter={e => e.target.style.color = '#0077b6'}
+              onMouseLeave={e => e.target.style.color = '#6b7280'}>
+              Privacy Policy
+            </Link>
+            <Link to="/terms" style={{ fontSize: '0.875rem', color: '#6b7280', textDecoration: 'none' }}
+              onMouseEnter={e => e.target.style.color = '#0077b6'}
+              onMouseLeave={e => e.target.style.color = '#6b7280'}>
+              Terms of Service
+            </Link>
+          </div>
         </div>
       </div>
     </footer>

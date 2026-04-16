@@ -19,6 +19,8 @@ import Reviews from './pages/Reviews';
 import Profile from './pages/Profile';
 import ForgotPassword from './pages/ForgotPassword';
 import NotFound from './pages/NotFound';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import TermsOfService from './pages/TermsOfService';
 import './index.css';
 
 import { useAuth } from './context/AuthContext';
@@ -52,6 +54,8 @@ function AppRoutes() {
           <Route path="/reviews" element={<Reviews />} />
           <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/privacy" element={<PrivacyPolicy />} />
+          <Route path="/terms" element={<TermsOfService />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </main>
