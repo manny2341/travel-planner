@@ -1,0 +1,19 @@
+{
+  "appId": "com.travelplanner.app",
+  "appName": "Travel Planner",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 2000,
+      "backgroundColor": "#0077b6",
+      "showSpinner": false
+    },
+    "StatusBar": {
+      "style": "LIGHT",
+      "backgroundColor": "#0077b6"
+    }
+  }
+}
