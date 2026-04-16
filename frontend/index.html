@@ -1,18 +1,43 @@
 <!doctype html>
 <html lang="en">
   <head>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    * { font-family: Outfit, Inter, sans-serif; }
-    body { -webkit-font-smoothing: antialiased; }
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-thumb { background: rgba(0,119,182,0.3); border-radius: 999px; }
-    ::selection { background: rgba(0,119,182,0.2); color: #0077b6; }
-  </style>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>frontend</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+
+    <!-- PWA manifest & theme -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0077b6" />
+
+    <!-- iOS PWA support -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Travel Planner" />
+    <link rel="apple-touch-icon" href="/icon.svg" />
+
+    <!-- SEO -->
+    <title>Travel Planner — Plan, Book & Track Your Trips</title>
+    <meta name="description" content="Plan your perfect trip, book flights and hotels, track your budget, and share reviews — all in one place." />
+    <meta name="keywords" content="travel planner, flights, hotels, budget, trip planning" />
+
+    <!-- Open Graph (for sharing) -->
+    <meta property="og:title" content="Travel Planner" />
+    <meta property="og:description" content="Plan your perfect trip, book flights and hotels, track your budget." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/icon.svg" />
+
+    <!-- Icons -->
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+    <style>
+      * { font-family: Outfit, Inter, sans-serif; }
+      body { -webkit-font-smoothing: antialiased; }
+      ::-webkit-scrollbar { width: 6px; }
+      ::-webkit-scrollbar-thumb { background: rgba(0,119,182,0.3); border-radius: 999px; }
+      ::selection { background: rgba(0,119,182,0.2); color: #0077b6; }
+    </style>
   </head>
   <body>
     <div id="root"></div>

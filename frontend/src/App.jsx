@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider } from './context/AuthContext';
+import InstallPrompt from './components/InstallPrompt';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -35,6 +36,7 @@ function AppRoutes() {
     <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <Navbar />
       <Toaster position="top-right" richColors />
+      <InstallPrompt />
       <main style={{ flex: 1 }}>
         <Routes>
           <Route path="/" element={<Home />} />

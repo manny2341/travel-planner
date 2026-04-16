@@ -1,0 +1,43 @@
+{
+  "name": "Travel Planner",
+  "short_name": "Travel",
+  "description": "Plan trips, book flights & hotels, track your budget",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0077b6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [],
+  "categories": ["travel", "lifestyle"],
+  "shortcuts": [
+    {
+      "name": "My Plans",
+      "url": "/plans",
+      "description": "View your travel plans"
+    },
+    {
+      "name": "Book a Flight",
+      "url": "/booking",
+      "description": "Search and book flights"
+    },
+    {
+      "name": "Budget",
+      "url": "/budget",
+      "description": "Track your travel budget"
+    }
+  ]
+}
